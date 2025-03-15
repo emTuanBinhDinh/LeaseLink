@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration scan="true" scanPeriod="30 seconds">
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <!-- Các tham số cấu hình -->
+    <property name="LOG_PATH" value="${LOG_PATH:-${LOG_TEMP:-${java.io.tmpdir:-/tmp}}}" />
+    <property name="APP_NAME" value="${APP_NAME:-webflux-microservice}" />
+    <property name="MAX_FILE_SIZE" value="${MAX_FILE_SIZE:-100MB}" />
+    <property name="MAX_HISTORY" value="${MAX_HISTORY:-30}" />
+    <property name="TOTAL_SIZE_CAP" value="${TOTAL_SIZE_CAP:-20GB}" />
+    <property name="LOG_LEVEL_ROOT" value="${LOG_LEVEL_ROOT:-INFO}" />
+    <property name="LOG_LEVEL_APP" value="${LOG_LEVEL_APP:-DEBUG}" />
+
+    <!-- Environment detection -->
+    <property name="ENV" value="${SPRING_PROFILES_ACTIVE:-development}" />
+
+    <!-- Pattern định dạng đầy đủ cho logs -->
+    <property name="FULL_PATTERN" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] [${APP_NAME}] [env=${ENV}] [trace=%X{traceId:-NO_TRACE} span=%X{spanId:-NO_SPAN}] [req=%X{requestId:-NO_REQ}] [user=%X{userId:-}] [tenant=%X{tenantId:-}] [op=%X{operation:-}] %-5level %logger{36} - %msg%n" />
+
+    <!-- Pattern ngắn hơn cho logs console -->
+    <property name="CONSOLE_PATTERN" value="%clr(%d{HH:mm:ss.SSS}){faint} %clr(${LOG_LEVEL_PATTERN:-%5p}) %clr([%thread]){magenta} %clr([%X{traceId:-},%X{requestId:-}]){blue} %clr(%-40.40logger{36}){cyan} %clr(:){faint} %m%n${LOG_EXCEPTION_CONVERSION_WORD:-%wEx}" />
+
+    <!-- Pattern JSON để tích hợp với ELK Stack -->
+    <property name="JSON_PATTERN" value='{"@timestamp":"%d{yyyy-MM-dd''T''HH:mm:ss.SSSZ}","level":"%level","thread":"%thread","logger":"%logger","message":"%message","app_name":"${APP_NAME:-unknown_app}","environment":"${ENV}","host_name":"${HOSTNAME:-unknown}","trace_id":"%X{traceId:-NO_TRACE}","span_id":"%X{spanId:-NO_SPAN}","request_id":"%X{requestId:-NO_REQ}","user_id":"%X{userId:-}","tenant_id":"%X{tenantId:-}","operation":"%X{operation:-}","exception":"%replace(%exception){\n,\\\\n}"}%n' />
+
+    <!-- Các Appenders -->
+
+    <!-- Console Appender -->
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder>
+            <pattern>${CONSOLE_PATTERN}</pattern>
+            <charset>utf8</charset>
+        </encoder>
+        <!-- Không log TRACE và DEBUG trong môi trường sản xuất -->
+        <filter class="ch.qos.logback.core.filter.EvaluatorFilter">
+            <evaluator class="ch.qos.logback.classic.boolex.JaninoEventEvaluator">
+                <expression>
+                    return !"production".equalsIgnoreCase("${ENV}") || (level > Level.DEBUG);
+                </expression>
+            </evaluator>
+            <OnMismatch>DENY</OnMismatch>
+            <OnMatch>NEUTRAL</OnMatch>
+        </filter>
+    </appender>
+
+    <!-- File Appender cho toàn bộ log -->
+    <appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/${APP_NAME}.log</file>
+        <encoder>
+            <pattern>${FULL_PATTERN}</pattern>
+            <charset>utf8</charset>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/${APP_NAME}-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>${MAX_FILE_SIZE}</maxFileSize>
+            <maxHistory>${MAX_HISTORY}</maxHistory>
+            <totalSizeCap>${TOTAL_SIZE_CAP}</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <!-- JSON Appender cho ELK integration -->
+    <appender name="JSON_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/${APP_NAME}-json.log</file>
+        <encoder class="ch.qos.logback.core.encoder.LayoutWrappingEncoder">
+            <layout class="ch.qos.logback.classic.PatternLayout">
+                <pattern>${JSON_PATTERN}</pattern>
+            </layout>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/${APP_NAME}-json-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>${MAX_FILE_SIZE}</maxFileSize>
+            <maxHistory>${MAX_HISTORY}</maxHistory>
+            <totalSizeCap>${TOTAL_SIZE_CAP}</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <!-- Error Appender chỉ cho errors -->
+    <appender name="ERROR_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/${APP_NAME}-error.log</file>
+        <encoder>
+            <pattern>${FULL_PATTERN}</pattern>
+            <charset>utf8</charset>
+        </encoder>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>ERROR</level>
+        </filter>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/${APP_NAME}-error-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>${MAX_FILE_SIZE}</maxFileSize>
+            <maxHistory>${MAX_HISTORY}</maxHistory>
+            <totalSizeCap>${TOTAL_SIZE_CAP}</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <!-- Performance Log Appender -->
+    <appender name="PERF_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/${APP_NAME}-perf.log</file>
+        <encoder>
+            <pattern>${FULL_PATTERN}</pattern>
+            <charset>utf8</charset>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/${APP_NAME}-perf-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>${MAX_FILE_SIZE}</maxFileSize>
+            <maxHistory>${MAX_HISTORY}</maxHistory>
+            <totalSizeCap>${TOTAL_SIZE_CAP}</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <!-- Access Log Appender (cho HTTP requests) -->
+    <appender name="ACCESS_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/${APP_NAME}-access.log</file>
+        <encoder>
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} [%X{requestId:-NO_REQ}] - %msg%n</pattern>
+            <charset>utf8</charset>
+        </encoder>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/${APP_NAME}-access-%d{yyyy-MM-dd}.%i.log.gz</fileNamePattern>
+            <maxFileSize>${MAX_FILE_SIZE}</maxFileSize>
+            <maxHistory>${MAX_HISTORY}</maxHistory>
+            <totalSizeCap>${TOTAL_SIZE_CAP}</totalSizeCap>
+        </rollingPolicy>
+    </appender>
+
+    <!-- Async Appenders để tối ưu hiệu suất -->
+    <appender name="ASYNC_FILE" class="ch.qos.logback.classic.AsyncAppender">
+        <queueSize>1024</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <appender-ref ref="FILE" />
+        <includeCallerData>false</includeCallerData>
+        <neverBlock>true</neverBlock>
+    </appender>
+
+    <appender name="ASYNC_JSON" class="ch.qos.logback.classic.AsyncAppender">
+        <queueSize>1024</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <appender-ref ref="JSON_FILE" />
+        <includeCallerData>false</includeCallerData>
+        <neverBlock>true</neverBlock>
+    </appender>
+
+    <appender name="ASYNC_ERROR" class="ch.qos.logback.classic.AsyncAppender">
+        <queueSize>512</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <appender-ref ref="ERROR_FILE" />
+        <includeCallerData>true</includeCallerData>
+        <neverBlock>false</neverBlock>
+    </appender>
+
+    <appender name="ASYNC_ACCESS" class="ch.qos.logback.classic.AsyncAppender">
+        <queueSize>1024</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <appender-ref ref="ACCESS_FILE" />
+        <includeCallerData>false</includeCallerData>
+        <neverBlock>true</neverBlock>
+    </appender>
+
+    <appender name="ASYNC_PERF" class="ch.qos.logback.classic.AsyncAppender">
+        <queueSize>512</queueSize>
+        <discardingThreshold>0</discardingThreshold>
+        <appender-ref ref="PERF_FILE" />
+        <includeCallerData>false</includeCallerData>
+        <neverBlock>true</neverBlock>
+    </appender>
+
+    <!-- Specific loggers -->
+
+    <!-- Logger cho HTTP access logs -->
+    <logger name="com.example.logging.filter.ReactiveLoggingFilter" level="INFO" additivity="false">
+        <appender-ref ref="ASYNC_ACCESS" />
+    </logger>
+
+    <!-- Logger cho performance metrics -->
+    <logger name="com.example.performance" level="DEBUG" additivity="false">
+        <appender-ref ref="ASYNC_PERF" />
+        <appender-ref ref="CONSOLE" />
+    </logger>
+
+    <!-- Spring & Reactor Framework -->
+    <logger name="org.springframework" level="INFO" />
+    <logger name="org.springframework.web" level="INFO" />
+    <logger name="org.springframework.web.reactive" level="INFO" />
+    <logger name="org.springframework.data" level="INFO" />
+    <logger name="org.springframework.data.r2dbc" level="INFO" />
+    <logger name="org.springframework.cloud" level="INFO" />
+    <logger name="org.springframework.cloud.sleuth" level="INFO" />
+    <logger name="reactor" level="INFO" />
+    <logger name="reactor.netty" level="INFO" />
+    <logger name="io.netty" level="INFO" />
+    <logger name="io.r2dbc" level="INFO" />
+
+    <!-- Security related logging -->
+    <logger name="org.springframework.security" level="INFO" />
+    <logger name="com.example.security" level="DEBUG" />
+
+    <!-- Application code -->
+    <logger name="com.example" level="${LOG_LEVEL_APP}" />
+    <logger name="com.example.api" level="DEBUG" />
+    <logger name="com.example.service" level="DEBUG" />
+    <logger name="com.example.repository" level="DEBUG" />
+
+    <!-- Context -->
+    <contextListener class="ch.qos.logback.classic.jul.LevelChangePropagator">
+        <resetJUL>true</resetJUL>
+    </contextListener>
+
+    <!-- Cấu hình theo môi trường -->
+    <springProfile name="development">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE" />
+            <appender-ref ref="ASYNC_FILE" />
+            <appender-ref ref="ASYNC_ERROR" />
+        </root>
+    </springProfile>
+
+    <springProfile name="test">
+        <root level="DEBUG">
+            <appender-ref ref="CONSOLE" />
+            <appender-ref ref="ASYNC_FILE" />
+            <appender-ref ref="ASYNC_ERROR" />
+        </root>
+    </springProfile>
+
+    <springProfile name="production,staging">
+        <root level="INFO">
+            <appender-ref ref="CONSOLE" />
+            <appender-ref ref="ASYNC_FILE" />
+            <appender-ref ref="ASYNC_JSON" />
+            <appender-ref ref="ASYNC_ERROR" />
+        </root>
+    </springProfile>
+
+    <!-- Default root logger nếu không có profile nào được active -->
+    <root level="${LOG_LEVEL_ROOT}">
+        <appender-ref ref="CONSOLE" />
+        <appender-ref ref="ASYNC_FILE" />
+        <appender-ref ref="ASYNC_ERROR" />
+    </root>
+</configuration>
